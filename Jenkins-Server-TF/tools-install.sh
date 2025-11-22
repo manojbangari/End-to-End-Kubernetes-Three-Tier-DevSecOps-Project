@@ -14,6 +14,40 @@ echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
   /etc/apt/sources.list.d/jenkins.list > /dev/null
 sudo apt-get update -y
 sudo apt-get install jenkins -y
+sudo systemctl enable jenkins
+sudo systemctl start jenkins
+
+# Wait for Jenkins to initialize
+sleep 60
+
+#################################
+# INSTALL REQUIRED PLUGINS
+#################################
+
+JENKINS_CLI="/var/lib/jenkins/jenkins-plugin-cli.sh"
+
+cat <<EOF > /var/lib/jenkins/plugins.txt
+pipeline-stage-view
+aws-credentials
+aws-java-sdk
+pipeline-aws
+terraform
+kubernetes-client-api
+kubernetes-credentials
+kubernetes
+workflow-aggregator
+git
+configuration-as-code
+sonar
+sonar-quality-gates
+EOF
+
+# Install plugins
+sudo jenkins-plugin-cli --plugin-file /var/lib/jenkins/plugins.txt
+
+# Restart Jenkins to load plugins
+sudo systemctl restart jenkins
+
 
 # Installing Docker 
 #!/bin/bash
