@@ -1,10 +1,6 @@
 # kubernetes-pod.yaml
 apiVersion: v1
 kind: Pod
-metadata:
-  labels:
-    app: eks-agent
-    jenkins: slave
 spec:
   serviceAccountName: jenkins  # make sure this SA exists in the namespace with proper permissions
   restartPolicy: Never
