@@ -31,7 +31,7 @@ pipeline {
 
         stage('Sonarqube Analysis') {
             steps {
-                container('node') {
+                container('sonar-scanner') {
                     dir('Application-Code/frontend') {
                         withSonarQubeEnv('sonar-server') {
                             sh """
