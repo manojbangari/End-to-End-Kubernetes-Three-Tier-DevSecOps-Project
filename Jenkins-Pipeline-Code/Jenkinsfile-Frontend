@@ -4,7 +4,6 @@ pipeline {
             label 'eks-agent-' + env.BUILD_ID     // unique label every time → forces new template
             inheritFrom ''                        // VERY IMPORTANT: do NOT inherit old template
             yamlFile 'kubernetes-pod.yaml'         // take the YAML from the repo
-            defaultContainer 'jnlp'
         }
     }
     tools {
