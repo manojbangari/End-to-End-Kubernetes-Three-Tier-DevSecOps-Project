@@ -1,43 +1,54 @@
 pipeline {
     agent {
         kubernetes {
-            label 'eks-agent-' + env.BUILD_ID     // unique label every time → forces new template
-            yamlFile 'kubernetes-pod.yaml'         // take the YAML from the repo
+            label 'eks-agent-' + env.BUILD_ID
+            yamlFile 'kubernetes-pod.yaml'
             defaultContainer 'jnlp'
         }
     }
+
     tools {
-        nodejs 'nodejs'
+        nodejs 'nodejs'   // Make sure this name exists in Jenkins → Manage Jenkins → Tools
     }
-    environment  {
-        SCANNER_HOME=tool 'sonar-scanner'
+
+    environment {
+        SCANNER_HOME = tool 'sonar-scanner'  // This must match the name in Jenkins Global Tool Configuration
         AWS_ACCOUNT_ID = credentials('ACCOUNT_ID')
         AWS_ECR_REPO_NAME = credentials('ECR_REPO1')
         AWS_DEFAULT_REGION = 'us-east-1'
-        REPOSITORY_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/"
+        REPOSITORY_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
+
     stages {
-        stage('Cleaning Workspace') {
+        stage('Clean Workspace') {
             steps {
                 cleanWs()
             }
         }
 
-        stage('Checkout from Git') {
+        stage('Checkout') {
             steps {
-                git credentialsId: 'GITHUB', url: 'https://github.com/manojbangari/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project.git'
+                checkout scmGit(
+                    branches: [[name: '*/master']],
+                    userRemoteConfigs: [[
+                        credentialsId: 'GITHUB',
+                        url: 'https://github.com/manojbangari/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project.git'
+                    ]]
+                )
             }
         }
 
-        stage('Sonarqube Analysis') {
+        stage('SonarQube Analysis') {
             steps {
                 container('sonar-scanner') {
                     dir('Application-Code/frontend') {
                         withSonarQubeEnv('sonar-server') {
                             sh """
-                            \$SCANNER_HOME/bin/sonar-scanner \
-                            -Dsonar.projectName=frontend \
-                            -Dsonar.projectKey=frontend
+                                ${SCANNER_HOME}/bin/sonar-scanner \
+                                    -Dsonar.projectKey=frontend \
+                                    -Dsonar.projectName=frontend \
+                                    -Dsonar.sources=.
                             """
                         }
                     }
@@ -45,92 +56,93 @@ pipeline {
             }
         }
 
-        stage('Quality Check') {
+        stage('Quality Gate') {
             steps {
-                script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token'
-                }
+                waitForQualityGate abortPipeline: true, credentialsId: 'sonar-token'
             }
         }
-        stage('Trivy File Scan') {
+
+        stage('Trivy Filesystem Scan') {
             steps {
                 container('trivy') {
                     dir('Application-Code/frontend') {
-                        sh 'trivy fs . > trivyfs.txt'
+                        sh 'trivy fs --format table --exit-code 0 . > trivyfs.txt'
+                        archiveArtifacts 'trivyfs.txt'
                     }
                 }
             }
         }
 
-        stage("Docker Image Build") {
+        stage('Build Docker Image') {
             steps {
                 container('docker') {
                     dir('Application-Code/frontend') {
-                        sh 'docker system prune -f'
-                        sh 'docker container prune -f'
-                        sh 'docker build -t ${AWS_ECR_REPO_NAME} .'
+                        sh '''
+                            docker build -t ${AWS_ECR_REPO_NAME}:${IMAGE_TAG} .
+                        '''
                     }
                 }
             }
         }
 
-        stage("ECR Image Pushing") {
+        stage('Push to ECR') {
             steps {
                 container('aws') {
                     sh '''
-                    aws ecr get-login-password --region ${AWS_DEFAULT_REGION} \
-                    | docker login --username AWS --password-stdin ${REPOSITORY_URI}
+                        aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | \
+                            docker login --username AWS --password-stdin ${REPOSITORY_URI}
 
-                    docker tag ${AWS_ECR_REPO_NAME} \
-                    ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}
+                        docker tag ${AWS_ECR_REPO_NAME}:${IMAGE_TAG} \
+                            ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
 
-                    docker push ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}
+                        docker push ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
                     '''
                 }
             }
         }
 
-        stage("TRIVY Image Scan") {
+        stage('Trivy Image Scan') {
             steps {
                 container('trivy') {
-                    sh 'trivy image ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} > trivyimage.txt'
+                    sh '''
+                        trivy image --format table --exit-code 0 \
+                            ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG} > trivyimage.txt
+                        cat trivyimage.txt
+                    '''
+                    archiveArtifacts 'trivyimage.txt'
                 }
             }
         }
 
-        stage('Checkout Code') {
-            steps {
-                git credentialsId: 'GITHUB',
-                    url: 'https://github.com/manojbangari/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project.git'
-            }
-        }
-
-        stage('Update Deployment file') {
+        stage('Update Kubernetes Manifest') {
             environment {
                 GIT_REPO_NAME = "End-to-End-Kubernetes-Three-Tier-DevSecOps-Project"
                 GIT_USER_NAME = "Manoj-Bangari"
             }
-
             steps {
                 container('aws') {
                     dir('Kubernetes-Manifests-file/Frontend') {
                         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                             sh '''
-                            git config user.email "manojbangari39@gmail.com"
-                            git config user.name "ManojBangari-DevOps"
+                                git config --global user.email "manojbangari39@gmail.com"
+                                git config --global user.name "Manoj-Bangari"
 
-                            imageTag=$(grep -oP '(?<=frontend:)[^ ]+' deployment.yaml)
+                                sed -i "s|${AWS_ECR_REPO_NAME}:.*|${AWS_ECR_REPO_NAME}:${IMAGE_TAG}|" deployment.yaml
 
-                            sed -i "s/${AWS_ECR_REPO_NAME}:${imageTag}/${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}/" deployment.yaml
-
-                            git add deployment.yaml
-                            git commit -m "Update deployment Image to version ${BUILD_NUMBER}"
-                            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:master
+                                git add deployment.yaml
+                                git commit -m "Update frontend image to ${IMAGE_TAG}" || echo "No changes to commit"
+                                git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:master
                             '''
                         }
                     }
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
         }
     }
 }
