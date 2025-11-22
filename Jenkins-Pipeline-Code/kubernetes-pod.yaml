@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Pod
+spec:
+  serviceAccountName: jenkins
+  containers:
+  - name: jnlp
+    image: jenkins/inbound-agent:latest
+
+  - name: docker
+    image: docker:24.0-dind
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - name: docker-sock
+      mountPath: /var/run/docker.sock
+
+  - name: aws
+    image: amazon/aws-cli:latest
+    command: ["sleep"]
+    args: ["999999"]
+
+  - name: trivy
+    image: aquasec/trivy:latest
+    command: ["sleep"]
+    args: ["999999"]
+
+  - name: node
+    image: node:18
+    command: ["sleep"]
+    args: ["999999"]
