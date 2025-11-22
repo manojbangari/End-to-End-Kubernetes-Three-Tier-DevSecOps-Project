@@ -35,6 +35,7 @@ terraform
 kubernetes-client-api
 kubernetes-credentials
 kubernetes
+docker
 workflow-aggregator
 git
 configuration-as-code
