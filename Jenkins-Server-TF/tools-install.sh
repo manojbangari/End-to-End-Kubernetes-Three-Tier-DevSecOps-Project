@@ -24,31 +24,47 @@ sleep 60
 # INSTALL REQUIRED PLUGINS
 #################################
 
-JENKINS_CLI="/var/lib/jenkins/jenkins-plugin-cli.sh"
+sudo mkdir -p /var/lib/jenkins/init.groovy.d
 
-cat <<EOF > /var/lib/jenkins/plugins.txt
-pipeline-stage-view
-aws-credentials
-aws-java-sdk
-pipeline-aws
-terraform
-kubernetes-client-api
-kubernetes-credentials
-kubernetes
-docker
-workflow-aggregator
-git
-configuration-as-code
-sonar
-sonar-quality-gates
+# Create plugin auto-install script
+cat <<EOF | sudo tee /var/lib/jenkins/init.groovy.d/install-plugins.groovy
+import jenkins.model.*
+
+def plugins = [
+  "pipeline-stage-view",
+  "aws-credentials",
+  "pipeline-aws",
+  "terraform",
+  "kubernetes",
+  "git",
+  "docker-plugin",
+  "sonar",
+  "blueocean",
+  "credentials-binding"
+]
+
+def instance = Jenkins.getInstance()
+def pm = instance.getPluginManager()
+def uc = instance.getUpdateCenter()
+
+plugins.each { plugin ->
+    if (!pm.getPlugin(plugin)) {
+        def p = uc.getPlugin(plugin)
+        if (p) {
+            println("Installing: \${plugin}")
+            p.deploy()
+        }
+    }
+}
+
+instance.save()
 EOF
 
-# Install plugins
-sudo jenkins-plugin-cli --plugin-file /var/lib/jenkins/plugins.txt
+# Fix permissions
+sudo chown -R jenkins:jenkins /var/lib/jenkins
 
-# Restart Jenkins to load plugins
+# Restart Jenkins to trigger plugin installation
 sudo systemctl restart jenkins
-
 
 # Installing Docker 
 #!/bin/bash
