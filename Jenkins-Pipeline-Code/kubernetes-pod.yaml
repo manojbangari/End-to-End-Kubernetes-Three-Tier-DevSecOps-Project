@@ -31,3 +31,7 @@ spec:
     image: node:18
     command: ["sleep"]
     args: ["999999"]
+  volumes:
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
