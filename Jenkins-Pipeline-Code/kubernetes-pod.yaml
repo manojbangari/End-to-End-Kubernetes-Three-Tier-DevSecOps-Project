@@ -34,7 +34,7 @@ spec:
       requests:
         memory: "1.5Gi"
         cpu: "1"
-  - name: docker
+  - name: aws
     image: docker:24.0-dind
     securityContext:
       privileged: true
@@ -42,11 +42,15 @@ spec:
       - name: DOCKER_TLS_CERTDIR
         value: ""
     command:
-    - dockerd-entrypoint.sh
-    args:
-    - "--host=tcp://127.0.0.1:2375"
-    - "--host=unix:///var/run/docker.sock"
-
+      - /bin/sh
+      - -c
+      - |
+        apk add --no-cache python3 py3-pip curl unzip &&
+        pip3 install awscli &&
+        dockerd-entrypoint.sh \
+          --host=tcp://127.0.0.1:2375 \
+          --host=unix:///var/run/docker.sock
+    tty: true
   - name: node
     image: node:20-alpine
     command: ["sleep", "infinity"]
