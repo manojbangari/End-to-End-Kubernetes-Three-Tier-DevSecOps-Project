@@ -45,8 +45,8 @@ pipeline {
                         withSonarQubeEnv('sonar-server') {
                             sh """
                                 ${SCANNER_HOME}/bin/sonar-scanner \
-                                    -Dsonar.projectKey=frontend \
-                                    -Dsonar.projectName=frontend \
+                                    -Dsonar.projectKey=frontend-${BUILD_NUMBER} \
+                                    -Dsonar.projectName='Frontend Build #${BUILD_NUMBER}' \
                                     -Dsonar.sources=.
                             """
                         }
