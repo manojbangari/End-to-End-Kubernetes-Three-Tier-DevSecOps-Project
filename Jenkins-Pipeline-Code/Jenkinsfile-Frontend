@@ -84,16 +84,19 @@ pipeline {
 
         stage('Push to ECR') {
             steps {
-                container('aws') {
-                    sh '''
-                        aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | \
-                            docker login --username AWS --password-stdin ${REPOSITORY_URI}
-
-                        docker tag ${AWS_ECR_REPO_NAME}:${IMAGE_TAG} \
-                            ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
-
-                        docker push ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
-                    '''
+                container('docker') {                    // ← RUN DOCKER COMMANDS HERE
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', 
+                                      credentialsId: 'aws-creds']]) {
+                        sh '''
+                            aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | \
+                                docker login --username AWS --password-stdin ${REPOSITORY_URI}
+                            
+                            docker tag ${AWS_ECR_REPO_NAME}:${IMAGE_TAG} \
+                                ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
+                            
+                            docker push ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
+                        '''
+                    }
                 }
             }
         }
