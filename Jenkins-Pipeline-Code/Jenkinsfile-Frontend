@@ -1,7 +1,7 @@
 pipeline {
     agent {
         kubernetes {
-            yamlFile 'kubernetes-pod.yaml'
+            yamlFile 'Jenkins-Pipeline-Code/kubernetes-pod.yaml'
             idleMinutes 5
         }
     }
