@@ -35,9 +35,20 @@ spec:
         memory: "1.5Gi"
         cpu: "1"
   - name: aws
-    image: amazon/aws-cli:latest
-    command: ["/bin/sh", "-c", "yum install -y docker && sleep infinity"]
+    image: docker:24-cli
+    command:
+      - sh
+      - -c
+      - |
+        apk add --no-cache python3 py3-pip aws-cli curl &&
+        dockerd-entrypoint.sh & sleep infinity
+    securityContext:
+      privileged: true
+    env:
+      - name: DOCKER_TLS_CERTDIR
+        value: ""
     tty: true
+
   - name: node
     image: node:20-alpine
     command: ["sleep", "infinity"]
