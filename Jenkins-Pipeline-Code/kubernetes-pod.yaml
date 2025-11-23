@@ -48,9 +48,13 @@ spec:
         apk add --no-cache python3 py3-pip curl unzip &&
         pip3 install awscli &&
         dockerd-entrypoint.sh \
-          --host=tcp://127.0.0.1:2375 \
-          --host=unix:///var/run/docker.sock
+          --host=unix:///var/run/docker.sock \
+          --host=tcp://0.0.0.0:2375 &
+  
+        # keep container alive for Jenkins
+        while true; do sleep 30; done
     tty: true
+
   - name: node
     image: node:20-alpine
     command: ["sleep", "infinity"]
