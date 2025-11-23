@@ -57,6 +57,6 @@ spec:
     command: ["sleep", "infinity"]
     tty: true
 
-volumes:
-- name: docker-sock
-  emptyDir: {}
+  volumes:
+  - name: docker-sock
+    emptyDir: {}
