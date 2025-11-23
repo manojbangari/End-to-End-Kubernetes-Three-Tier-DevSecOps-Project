@@ -27,6 +27,13 @@ spec:
     image: sonarsource/sonar-scanner-cli:latest
     command: ["sleep", "infinity"]
     tty: true
+    resources:
+      limits:
+        memory: "2Gi"
+        cpu: "1"
+      requests:
+        memory: "1.5Gi"
+        cpu: "1"
   - name: aws
     image: amazon/aws-cli:latest
     command: ["sleep", "infinity"]
@@ -35,3 +42,10 @@ spec:
     image: node:20-alpine
     command: ["sleep", "infinity"]
     tty: true
+    resources:
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
