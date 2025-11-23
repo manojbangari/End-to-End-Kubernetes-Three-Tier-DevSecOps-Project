@@ -24,7 +24,7 @@ spec:
     command: ["sleep", "infinity"]
     tty: true
   - name: sonar-scanner
-    image: sonarsltd/sonar-scanner-cli:5
+    image: sonarsource/sonar-scanner-cli:latest
     command: ["sleep", "infinity"]
     tty: true
     resources:
