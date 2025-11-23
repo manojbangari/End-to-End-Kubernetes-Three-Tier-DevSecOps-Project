@@ -37,7 +37,6 @@ pipeline {
                 )
             }
         }
-
         stage('SonarQube Analysis') {
             steps {
                 container('sonar-scanner') {
@@ -45,16 +44,17 @@ pipeline {
                         withSonarQubeEnv('sonar-server') {
                             sh """
                                 ${SCANNER_HOME}/bin/sonar-scanner \
-                                    -Dsonar.projectKey=frontend-${BUILD_NUMBER} \
-                                    -Dsonar.projectName='Frontend Build #${BUILD_NUMBER}' \
-                                    -Dsonar.sources=.
+                                    -Dsonar.projectKey=frontend \
+                                    -Dsonar.projectName="Frontend" \
+                                    -Dsonar.sources=. \
+                                    -Dsonar.sourceEncoding=UTF-8 \
+                                    -Dsonar.exclusions=**/node_modules/**,**/.git/**,**/*.test.js
                             """
                         }
                     }
                 }
             }
         }
-
         stage('Quality Gate') {
             steps {
                 waitForQualityGate abortPipeline: true, credentialsId: 'sonar-token'
