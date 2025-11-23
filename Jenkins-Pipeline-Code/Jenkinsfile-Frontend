@@ -45,7 +45,7 @@ pipeline {
                             sh """
                                 ${SCANNER_HOME}/bin/sonar-scanner \
                                     -Dsonar.projectKey=frontend \
-                                    -Dsonar.projectName="Frontend" \
+                                    -Dsonar.projectName="frontend" \
                                     -Dsonar.sources=. \
                                     -Dsonar.sourceEncoding=UTF-8 \
                                     -Dsonar.exclusions=**/node_modules/**,**/.git/**,**/*.test.js
