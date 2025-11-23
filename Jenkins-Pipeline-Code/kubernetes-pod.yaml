@@ -34,20 +34,18 @@ spec:
       requests:
         memory: "1.5Gi"
         cpu: "1"
-  - name: aws
-    image: docker:24-cli
-    command:
-      - sh
-      - -c
-      - |
-        apk add --no-cache python3 py3-pip aws-cli curl &&
-        dockerd-entrypoint.sh & sleep infinity
+  - name: docker
+    image: docker:24.0-dind
     securityContext:
       privileged: true
     env:
       - name: DOCKER_TLS_CERTDIR
         value: ""
-    tty: true
+    command:
+    - dockerd-entrypoint.sh
+    args:
+    - "--host=tcp://127.0.0.1:2375"
+    - "--host=unix:///var/run/docker.sock"
 
   - name: node
     image: node:20-alpine
