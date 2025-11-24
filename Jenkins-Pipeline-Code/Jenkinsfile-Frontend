@@ -37,6 +37,68 @@ pipeline {
                 )
             }
         }
+        stage('SonarQube Analysis') {
+            steps {
+                container('sonar-scanner') {
+                    dir('Application-Code/frontend') {
+                        withSonarQubeEnv('sonar-server') {
+                            sh """
+                                ${SCANNER_HOME}/bin/sonar-scanner \
+                                    -Dsonar.projectKey=frontend \
+                                    -Dsonar.projectName="frontend" \
+                                    -Dsonar.sources=.
+                            """
+                        }
+                    }
+                }
+            }
+        }
+        stage('Quality Gate') {
+            steps {
+                waitForQualityGate abortPipeline: true, credentialsId: 'sonar-token'
+            }
+        }
+        stage('OWASP Dependency-Check Scan') {
+            steps {
+                container('jnlp') {   // Runs inside the default Jenkins agent (has Java + tools)
+                    dir('Application-Code/frontend') {
+                        // This automatically pulls the official Dependency-Check image the first time
+                        dependencyCheck(
+                            additionalArguments: '''
+                                --scan ./
+                                --format XML
+                                --format HTML
+                                --disableYarnAudit
+                                --disableNodeAudit
+                                --enableExperimental
+                                --out .
+                            ''',
+                            odcInstallation: 'DP-Check'   // Must match the name in Manage Jenkins → Tools
+                        )
+
+                        // Publish HTML report (nicer in Jenkins UI)
+                        publishHTML(
+                            target: [
+                                allowMissing: false,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: '.',
+                                reportFiles: 'dependency-check-report.html',
+                                reportName: 'OWASP Dependency-Check Report'
+                            ]
+                        )
+
+                        // Publish the XML for the classic Jenkins plugin view
+                        dependencyCheckPublisher(
+                            pattern: 'dependency-check-report.xml',
+                            failedTotalCritical: 1,   // Fail build on any CRITICAL
+                            failedTotalHigh:      10, // Fail on 10+ HIGH (adjust as needed)
+                            unstableTotalHigh:    5   // Mark unstable on 5+ HIGH
+                        )
+                    }
+                }
+            }
+        }
         stage('Trivy Filesystem Scan') {
             steps {
                 container('trivy') {
@@ -100,18 +162,6 @@ pipeline {
                 }
             }
         }
-        // Optional: Add SonarQube stage if needed
-        // stage('SonarQube Analysis') {
-        //     steps {
-        //         container('sonar-scanner') {
-        //             dir('Application-Code/frontend') {
-        //                 withSonarQubeEnv('SonarQube') {  // Configure in Jenkins
-        //                     sh "${SCANNER_HOME}/bin/sonar-scanner -Dsonar.projectKey=frontend"
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
         stage('Update Kubernetes Manifest') {
             environment {
                 GIT_REPO_NAME = "End-to-End-Kubernetes-Three-Tier-DevSecOps-Project"
