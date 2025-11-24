@@ -32,7 +32,7 @@ spec:
       initialDelaySeconds: 60
       periodSeconds: 30
   - name: docker-cli
-    image: docker:27.3-cli-alpine  # Confirmed available; full v29 daemon compat    command: ["cat"]
+    image: alpinelinux/docker-cli:latest-s390x # Confirmed available; full v29 daemon compat    command: ["cat"]
     tty: true
     securityContext:
       privileged: false
