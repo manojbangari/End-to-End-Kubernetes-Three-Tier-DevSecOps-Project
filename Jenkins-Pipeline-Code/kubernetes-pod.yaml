@@ -20,12 +20,13 @@ spec:
         value: ""
     tty: true
   - name: docker-cli
-    image: docker:24.0-cli
+    image: docker:20.10-cli
     command: ["cat"]
     tty: true
     volumeMounts:
       - name: docker-sock
         mountPath: /var/run/docker.sock
+
   - name: trivy
     image: aquasec/trivy:latest
     command: ["sleep", "infinity"]
@@ -43,19 +44,8 @@ spec:
         cpu: "1"
   - name: aws
     image: amazon/aws-cli:2.15.40
-    securityContext:
-      privileged: true
-    command:
-      - /bin/sh
-      - -c
-      - |
-        yum install -y docker && \
-        dockerd-entrypoint.sh & \
-        while true; do sleep 30; done
+    command: ["cat"]
     tty: true
-    volumeMounts:
-      - name: docker-sock
-        mountPath: /var/run/docker.sock
   - name: node
     image: node:20-alpine
     command: ["sleep", "infinity"]
