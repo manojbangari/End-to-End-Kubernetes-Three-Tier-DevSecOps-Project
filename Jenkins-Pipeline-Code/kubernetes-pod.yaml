@@ -47,11 +47,11 @@ spec:
     tty: true
     resources:
       limits:
-        cpu: "500m"
-        memory: "512Mi"
+        cpu: "1"
+        memory: "1"
       requests:
-        cpu: "100m"
-        memory: "128Mi"
+        cpu: "1"
+        memory: "1"
   # - name: sonar-scanner  # Uncomment if needed
   #   ...
   - name: aws
