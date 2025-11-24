@@ -120,7 +120,7 @@ pipeline {
             steps {
                 container('aws') {  // AWS CLI not needed here; could use jnlp if git installed
                     dir('Kubernetes-Manifests-file/Frontend') {
-                        withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+                        withCredentials([string(credentialsId: 'GITHUB', variable: 'GITHUB_TOKEN')]) {
                             sh '''
                                 git config --global user.email "manojbangari39@gmail.com"
                                 git config --global user.name "Manoj-Bangari"
