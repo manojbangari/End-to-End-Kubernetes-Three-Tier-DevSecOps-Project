@@ -89,10 +89,9 @@ pipeline {
         stage('Trivy Image Scan') {
             steps {
                 container('trivy') {
-                    // This version NEVER kills your entire pipeline — even on huge images
-                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {   // ← keeps pipeline green
+                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         sh '''
-                            echo "Starting Trivy image scan (timeout 20min)..."
+                            echo "Scanning Docker image for vulnerabilities..."
                             trivy image \
                                 --timeout 20m \
                                 --skip-dirs "/root/.npm" \
@@ -101,26 +100,15 @@ pipeline {
                                 --vuln-type os,library \
                                 --severity HIGH,CRITICAL \
                                 --format table \
-                                --exit-code 0 \                 // ← never fails the step
+                                --exit-code 0 \
                                 ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG} \
                                 | tee trivyimage.txt
                             
-                            echo "Scan complete. Results:"
+                            echo "Scan complete!"
                             cat trivyimage.txt
                         '''
                     }
-                    
-                    // Always archive the report — even if scan had issues
                     archiveArtifacts artifacts: 'trivyimage.txt', allowEmptyArchive: true, fingerprint: true
-                }
-            }
-            post {
-                always {
-                    // Optional: Show a nice badge in Jenkins UI
-                    recordIssues(
-                        enabledForFailure: true,
-                        tool: trivy(pattern: 'trivyimage.txt')
-                    )
                 }
             }
         }
