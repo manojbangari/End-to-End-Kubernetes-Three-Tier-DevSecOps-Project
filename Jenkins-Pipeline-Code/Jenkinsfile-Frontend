@@ -62,16 +62,25 @@ pipeline {
 
         stage('Push to ECR') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
-                                  credentialsId: 'aws-creds',
-                                  accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                                  secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
                     script {
-                        def ecrPassword = sh(script: "aws ecr get-login-password --region ${AWS_DEFAULT_REGION}", returnStdout: true).trim()
+                        def ecrPassword = ""
+                        container('aws') {
+                            ecrPassword = sh(
+                                script: "aws ecr get-login-password --region ${AWS_DEFAULT_REGION}",
+                                returnStdout: true
+                            ).trim()
+                        }
                         container('docker-cli') {
                             sh """
-                                echo '$ecrPassword' | docker login --username AWS --password-stdin ${REPOSITORY_URI}
-                                docker tag ${AWS_ECR_REPO_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
+                                echo '${ecrPassword}' | docker login --username AWS --password-stdin ${REPOSITORY_URI}
+                                docker tag ${AWS_ECR_REPO_NAME}:${IMAGE_TAG} \
+                                          ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
                                 docker push ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
                             """
                         }
