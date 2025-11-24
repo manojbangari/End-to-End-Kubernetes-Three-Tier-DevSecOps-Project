@@ -19,6 +19,25 @@ spec:
       - name: DOCKER_TLS_CERTDIR
         value: ""
     tty: true
+  - name: docker-cli
+    image: docker:25.0-cli-alpine   # Recommended: latest stable CLI (25.0.x as of Nov 2025)
+    # image: docker:24.0-cli-alpine # still works, but 25.0+ is better
+    command:
+      - cat                     # Keeps container alive (dind alternative)
+    tty: true                   # Required with "cat" trick
+    securityContext:
+      privileged: false         # NEVER run privileged unless you really need it
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
+      requests:
+        cpu: "100m"
+        memory: "64Mi"
+    volumeMounts:
+      - name: docker-sock
+        mountPath: /var/run/docker.sock
+      # readOnly: true        # Uncomment if you only need build/pull, not run/rm
   - name: trivy
     image: aquasec/trivy:latest
     command: ["sleep", "infinity"]
