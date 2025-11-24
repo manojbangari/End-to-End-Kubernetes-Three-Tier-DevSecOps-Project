@@ -32,7 +32,7 @@ spec:
       initialDelaySeconds: 60
       periodSeconds: 30
   - name: docker-cli
-    image: docker:29.0-cli-alpine  # Upgrade to match DinD API (1.52+)
+    image: docker:cli-alpine  # Latest stable Alpine CLI (v27.3.1+; API 1.48)  # Upgrade to match DinD API (1.52+)
     command: ["cat"]
     tty: true
     securityContext:
