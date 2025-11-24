@@ -11,7 +11,7 @@ metadata:
 spec:
   ingressClassName: alb
   rules:
-    - host: manojbsdevops.study
+    - host: manoj-devops.kiranlove.co.in
       http:
         paths:
           - path: /api
