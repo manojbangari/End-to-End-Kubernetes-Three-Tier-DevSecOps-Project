@@ -34,22 +34,8 @@ spec:
   - name: docker-cli
     image: alpinelinux/docker-cli:latest-s390x # Confirmed available; full v29 daemon compat    command: ["cat"]
     tty: true
-    securityContext:
-      privileged: false
-    resources:
-      limits:
-        cpu: "500m"
-        memory: "256Mi"
-      requests:
-        cpu: "100m"
-        memory: "64Mi"
-    env:
-      - name: DOCKER_HOST
-        value: "tcp://localhost:2375"  # Match DinD TCP
-      - name: DOCKER_API_VERSION
-        value: "1.44"  # Fallback for compatibility
     volumeMounts:
-      - name: docker-sock  # Still mount socket as fallback
+      - name: docker-sock
         mountPath: /var/run/docker.sock
   - name: trivy
     image: aquasec/trivy:0.55.0  # Pin to stable version (latest as of Nov 2025)
