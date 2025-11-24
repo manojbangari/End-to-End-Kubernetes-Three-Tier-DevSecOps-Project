@@ -12,7 +12,7 @@ spec:
         memory: "256Mi"
         cpu: "100m"
   
-  - name: docker # The Daemon (DinD) Container
+  - name: docker
     image: docker:dind
     securityContext:
       privileged: true
@@ -20,10 +20,6 @@ spec:
       - name: DOCKER_TLS_CERTDIR
         value: ""
     tty: true
-    # FIX: Mount the shared emptyDir volume to the standard socket location
-    volumeMounts:
-      - name: docker-sock
-        mountPath: /var/run 
 
   - name: docker-cli # The Client Container
     # FIX: Upgraded image to ensure API version >= 1.44
