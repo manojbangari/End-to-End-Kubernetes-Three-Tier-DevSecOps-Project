@@ -53,7 +53,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 // Uses the corrected docker-cli container
-                container('docker-cli') { 
+                container('docker') { 
                     dir('Application-Code/frontend') {
                         sh '''
                             docker build -t ${AWS_ECR_REPO_NAME}:${IMAGE_TAG} .
