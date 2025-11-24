@@ -3,34 +3,33 @@ pipeline {
         kubernetes {
             yamlFile 'Jenkins-Pipeline-Code/kubernetes-pod.yaml'
             idleMinutes 5
+            // Optional: Default container for steps without explicit container()
+            defaultContainer 'jnlp'
         }
     }
-
     tools {
-        nodejs 'nodejs'   // Make sure this name exists in Jenkins → Manage Jenkins → Tools
+        nodejs 'nodejs'  // Ensure this matches Jenkins Global Tool Config
     }
-
     environment {
-        SCANNER_HOME = tool 'sonar-scanner'  // This must match the name in Jenkins Global Tool Configuration
+        SCANNER_HOME = tool 'sonar-scanner'  // For Sonar if added
         AWS_ACCOUNT_ID = credentials('ACCOUNT_ID')
-        AWS_ECR_REPO_NAME = credentials('ECR_REPO1')
+        AWS_ECR_REPO_NAME = credentials('ECR_REPO1')  // e.g., 'my-frontend-repo'
         AWS_DEFAULT_REGION = 'us-east-1'
         REPOSITORY_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
         IMAGE_TAG = "${BUILD_NUMBER}"
-        DOCKER_HOST = "tcp://localhost:2375"
+        DOCKER_HOST = "tcp://localhost:2375"  // Now matches DinD TCP
+        DOCKER_API_VERSION = '1.44'  // Global fallback
     }
-
     stages {
         stage('Clean Workspace') {
             steps {
                 cleanWs()
             }
         }
-
         stage('Checkout') {
             steps {
                 checkout scmGit(
-                    branches: [[name: '*/master']],
+                    branches: [[name: '*/master']],  // Consider '*/main' if repo updated
                     userRemoteConfigs: [[
                         credentialsId: 'GITHUB',
                         url: 'https://github.com/manojbangari/End-to-End-Kubernetes-Three-Tier-DevSecOps-Project.git'
@@ -38,21 +37,19 @@ pipeline {
                 )
             }
         }
-
         stage('Trivy Filesystem Scan') {
             steps {
                 container('trivy') {
                     dir('Application-Code/frontend') {
                         sh 'trivy fs --format table --exit-code 0 . > trivyfs.txt'
-                        archiveArtifacts 'trivyfs.txt'
+                        archiveArtifacts artifacts: 'trivyfs.txt', allowEmptyArchive: true
                     }
                 }
             }
         }
-
         stage('Build Docker Image') {
             steps {
-                container('docker') {
+                container('docker-cli') {  // Use docker-cli (safer than full docker)
                     dir('Application-Code/frontend') {
                         sh '''
                             docker build -t ${AWS_ECR_REPO_NAME}:${IMAGE_TAG} .
@@ -61,75 +58,75 @@ pipeline {
                 }
             }
         }
-
         stage('Push to ECR') {
-          steps {
-            withCredentials([[ 
-              $class: 'AmazonWebServicesCredentialsBinding',
-              credentialsId: 'aws-creds',
-              accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-              secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-            ]]) {
-        
-              script {
-                // Get ECR login password from aws container
-                def ecrPassword = ""
-        
-                container('aws') {
-                  ecrPassword = sh(
-                    script: "aws ecr get-login-password --region us-east-1",
-                    returnStdout: true
-                  ).trim()
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+                    script {
+                        def ecrPassword = ""
+                        container('aws') {
+                            ecrPassword = sh(
+                                script: "aws ecr get-login-password --region ${AWS_DEFAULT_REGION}",
+                                returnStdout: true
+                            ).trim()
+                        }
+                        container('docker-cli') {
+                            sh """
+                                echo '${ecrPassword}' | docker login --username AWS --password-stdin ${REPOSITORY_URI}
+                                docker tag ${AWS_ECR_REPO_NAME}:${IMAGE_TAG} \
+                                          ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
+                                docker push ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
+                            """
+                        }
+                    }
                 }
-        
-                // Use docker container to login & push
-                container('docker-cli') {
-                  sh """
-                    echo '${ecrPassword}' | docker login --username AWS --password-stdin ${REPOSITORY_URI}
-        
-                    docker tag ${AWS_ECR_REPO_NAME}:${IMAGE_TAG} \
-                              ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
-        
-                    docker push ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
-                  """
-                }
-              }
             }
-          }
         }
-
-
-
         stage('Trivy Image Scan') {
             steps {
                 container('trivy') {
-                    sh '''
-                        trivy image --format table --exit-code 0 \
+                    sh """
+                        trivy image --format table --exit-code 0 --severity HIGH,CRITICAL \
                             ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG} > trivyimage.txt
                         cat trivyimage.txt
-                    '''
-                    archiveArtifacts 'trivyimage.txt'
+                    """
+                    archiveArtifacts artifacts: 'trivyimage.txt', allowEmptyArchive: true
+                    // Optional: Fail on critical vulns
+                    // sh 'grep -q "CRITICAL" trivyimage.txt && exit 1 || true'
                 }
             }
         }
-
+        // Optional: Add SonarQube stage if needed
+        // stage('SonarQube Analysis') {
+        //     steps {
+        //         container('sonar-scanner') {
+        //             dir('Application-Code/frontend') {
+        //                 withSonarQubeEnv('SonarQube') {  // Configure in Jenkins
+        //                     sh "${SCANNER_HOME}/bin/sonar-scanner -Dsonar.projectKey=frontend"
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
         stage('Update Kubernetes Manifest') {
             environment {
                 GIT_REPO_NAME = "End-to-End-Kubernetes-Three-Tier-DevSecOps-Project"
                 GIT_USER_NAME = "Manoj-Bangari"
             }
             steps {
-                container('aws') {
+                container('aws') {  // AWS CLI not needed here; could use jnlp if git installed
                     dir('Kubernetes-Manifests-file/Frontend') {
                         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                             sh '''
                                 git config --global user.email "manojbangari39@gmail.com"
                                 git config --global user.name "Manoj-Bangari"
-
                                 sed -i "s|${AWS_ECR_REPO_NAME}:.*|${AWS_ECR_REPO_NAME}:${IMAGE_TAG}|" deployment.yaml
-
                                 git add deployment.yaml
-                                git commit -m "Update frontend image to ${IMAGE_TAG}" || echo "No changes to commit"
+                                git commit -m "Update frontend image to ${IMAGE_TAG}" || true
                                 git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:master
                             '''
                         }
@@ -138,10 +135,11 @@ pipeline {
             }
         }
     }
-
     post {
         always {
             cleanWs()
+            // Optional: Notify on failure
+            // emailext to: 'team@example.com', subject: "Build ${BUILD_NUMBER} - ${currentBuild.result}", body: "Check console output."
         }
     }
 }
