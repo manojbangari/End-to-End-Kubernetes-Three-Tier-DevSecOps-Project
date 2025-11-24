@@ -12,13 +12,12 @@ spec:
         memory: "256Mi"
         cpu: "100m"
   - name: docker
-    image: docker:dind
-    securityContext:
-      privileged: true
-    env:
-      - name: DOCKER_TLS_CERTDIR
-        value: ""
+    image: docker:24.0-cli
+    command: ["cat"]
     tty: true
+    volumeMounts:
+      - name: docker-sock
+        mountPath: /var/run/docker.sock
   - name: trivy
     image: aquasec/trivy:latest
     command: ["sleep", "infinity"]
