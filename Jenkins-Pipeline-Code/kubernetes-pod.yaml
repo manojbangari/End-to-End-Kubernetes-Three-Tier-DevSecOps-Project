@@ -11,22 +11,32 @@ spec:
       requests:
         memory: "256Mi"
         cpu: "100m"
+    tty: true
   - name: docker
-    image: docker:dind
+    image: docker:29.0-dind  # Pin to v29+ for API 1.44+ enforcement
     securityContext:
       privileged: true
     env:
       - name: DOCKER_TLS_CERTDIR
         value: ""
+      - name: DOCKER_HOST
+        value: "tcp://0.0.0.0:2375"  # Expose TCP for DOCKER_HOST; bind to all interfaces
+    ports:
+      - containerPort: 2375
+        name: docker-tcp
     tty: true
+    # Liveness probe for DinD
+    livenessProbe:
+      exec:
+        command: ["docker", "version"]
+      initialDelaySeconds: 60
+      periodSeconds: 30
   - name: docker-cli
-    image: docker:25.0-cli-alpine   # Recommended: latest stable CLI (25.0.x as of Nov 2025)
-    # image: docker:24.0-cli-alpine # still works, but 25.0+ is better
-    command:
-      - cat                     # Keeps container alive (dind alternative)
-    tty: true                   # Required with "cat" trick
+    image: docker:29.0-cli-alpine  # Upgrade to match DinD API (1.52+)
+    command: ["cat"]
+    tty: true
     securityContext:
-      privileged: false         # NEVER run privileged unless you really need it
+      privileged: false
     resources:
       limits:
         cpu: "500m"
@@ -34,51 +44,69 @@ spec:
       requests:
         cpu: "100m"
         memory: "64Mi"
+    env:
+      - name: DOCKER_HOST
+        value: "tcp://localhost:2375"  # Match DinD TCP
+      - name: DOCKER_API_VERSION
+        value: "1.44"  # Fallback for compatibility
     volumeMounts:
-      - name: docker-sock
+      - name: docker-sock  # Still mount socket as fallback
         mountPath: /var/run/docker.sock
-      # readOnly: true        # Uncomment if you only need build/pull, not run/rm
   - name: trivy
-    image: aquasec/trivy:latest
-    command: ["sleep", "infinity"]
-    tty: true
-  - name: sonar-scanner
-    image: sonarsource/sonar-scanner-cli:latest
+    image: aquasec/trivy:0.55.0  # Pin to stable version (latest as of Nov 2025)
     command: ["sleep", "infinity"]
     tty: true
     resources:
       limits:
-        memory: "2Gi"
-        cpu: "1"
+        cpu: "500m"
+        memory: "512Mi"
       requests:
-        memory: "1.5Gi"
-        cpu: "1"
+        cpu: "100m"
+        memory: "128Mi"
+  # - name: sonar-scanner  # Uncomment if using Sonar stage
+  #   image: sonarsource/sonar-scanner-cli:latest
+  #   command: ["sleep", "infinity"]
+  #   tty: true
+  #   resources:
+  #     limits:
+  #       memory: "2Gi"
+  #       cpu: "1"
+  #     requests:
+  #       memory: "1.5Gi"
+  #       cpu: "1"
   - name: aws
-    image: amazon/aws-cli:2.15.40
-    securityContext:
-      privileged: true
-    command:
-      - /bin/sh
-      - -c
-      - |
-        yum install -y docker && \
-        dockerd-entrypoint.sh & \
-        while true; do sleep 30; done
+    image: amazon/aws-cli:2.17.31  # Latest stable (Nov 2025); no custom Docker install
+    command: ["sleep", "infinity"]  # Simple sleep; no daemon needed
     tty: true
+    resources:
+      limits:
+        cpu: "250m"
+        memory: "256Mi"
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+    env:
+      - name: DOCKER_HOST
+        value: "tcp://localhost:2375"  # For any future docker cmds in aws
+      - name: DOCKER_API_VERSION
+        value: "1.44"
     volumeMounts:
       - name: docker-sock
-        mountPath: /var/run/docker.sock
-  - name: node
-    image: node:20-alpine
-    command: ["sleep", "infinity"]
-    tty: true
-    resources:
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-      requests:
-        memory: "256Mi"
-        cpu: "100m"
+        mountPath: /var/run/docker.sock  # Share DinD socket if needed
+  # - name: node  # Uncomment if running npm/yarn directly in pod
+  #   image: node:22-alpine  # Upgrade to LTS (22 as of Nov 2025)
+  #   command: ["sleep", "infinity"]
+  #   tty: true
+  #   resources:
+  #     limits:
+  #       memory: "512Mi"
+  #       cpu: "500m"
+  #     requests:
+  #       memory: "256Mi"
+  #       cpu: "100m"
   volumes:
-    - name: docker-sock
-      emptyDir: {}
+  - name: docker-sock
+    emptyDir: {}  # Shared socket volume for DinD
+  # Optional: Shared artifacts volume
+  # - name: shared-artifacts
+  #   emptyDir: {}
