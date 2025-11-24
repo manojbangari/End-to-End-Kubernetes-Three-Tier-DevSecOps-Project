@@ -7,7 +7,7 @@ pipeline {
     }
 
     tools {
-        nodejs 'nodejs'    // Make sure this name exists in Jenkins → Manage Jenkins → Tools
+        nodejs 'nodejs'   // Make sure this name exists in Jenkins → Manage Jenkins → Tools
     }
 
     environment {
@@ -17,7 +17,7 @@ pipeline {
         AWS_DEFAULT_REGION = 'us-east-1'
         REPOSITORY_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
         IMAGE_TAG = "${BUILD_NUMBER}"
-        // REMOVED: DOCKER_HOST = "tcp://localhost:2375" - Socket mounting is used instead.
+        DOCKER_HOST = "tcp://localhost:2375"
     }
 
     stages {
@@ -52,8 +52,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                // Uses the corrected docker-cli container
-                container('docker') { 
+                container('docker') {
                     dir('Application-Code/frontend') {
                         sh '''
                             docker build -t ${AWS_ECR_REPO_NAME}:${IMAGE_TAG} .
@@ -71,26 +70,26 @@ pipeline {
               accessKeyVariable: 'AWS_ACCESS_KEY_ID',
               secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
             ]]) {
-              
+        
               script {
                 // Get ECR login password from aws container
                 def ecrPassword = ""
-                
+        
                 container('aws') {
                   ecrPassword = sh(
                     script: "aws ecr get-login-password --region us-east-1",
                     returnStdout: true
                   ).trim()
                 }
-                
-                // Use corrected docker-cli container to login & push
+        
+                // Use docker container to login & push
                 container('docker-cli') {
                   sh """
                     echo '${ecrPassword}' | docker login --username AWS --password-stdin ${REPOSITORY_URI}
-                    
+        
                     docker tag ${AWS_ECR_REPO_NAME}:${IMAGE_TAG} \
-                                 ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
-                    
+                              ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
+        
                     docker push ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
                   """
                 }
@@ -98,6 +97,8 @@ pipeline {
             }
           }
         }
+
+
 
         stage('Trivy Image Scan') {
             steps {
@@ -118,7 +119,6 @@ pipeline {
                 GIT_USER_NAME = "Manoj-Bangari"
             }
             steps {
-                // The 'aws' container is used here, which must have 'git' and 'sed' installed.
                 container('aws') {
                     dir('Kubernetes-Manifests-file/Frontend') {
                         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
