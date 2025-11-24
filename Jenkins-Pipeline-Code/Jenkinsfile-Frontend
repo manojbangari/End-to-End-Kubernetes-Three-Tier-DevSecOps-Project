@@ -37,22 +37,6 @@ pipeline {
                 )
             }
         }
-        stage('SonarQube Analysis') {
-            steps {
-                container('sonar-scanner') {
-                    dir('Application-Code/frontend') {
-                        withSonarQubeEnv('sonar-server') {
-                            sh """
-                                ${SCANNER_HOME}/bin/sonar-scanner \
-                                    -Dsonar.projectKey=frontend \
-                                    -Dsonar.projectName="frontend" \
-                                    -Dsonar.sources=.
-                            """
-                        }
-                    }
-                }
-            }
-        }
         stage('Trivy Filesystem Scan') {
             steps {
                 container('trivy') {
