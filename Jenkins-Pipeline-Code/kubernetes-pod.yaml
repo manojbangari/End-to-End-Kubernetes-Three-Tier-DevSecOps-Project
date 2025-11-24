@@ -6,11 +6,11 @@ spec:
     image: jenkins/inbound-agent:latest
     resources:
       limits:
-        memory: "1Gi"
-        cpu: "1"
+        memory: "500Mi"
+        cpu: "400m"
       requests:
-        memory: "1Gi"
-        cpu: "1"
+        memory: "500Mi"
+        cpu: "400m"
     tty: true
   - name: docker
     image: docker:29.0-dind  # Confirmed available; API 1.52
@@ -47,11 +47,11 @@ spec:
     tty: true
     resources:
       limits:
-        cpu: "1"
-        memory: "1"
+        cpu: "500m"
+        memory: "600Mi"
       requests:
-        cpu: "1"
-        memory: "1"
+        cpu: "500m"
+        memory: "600Mi"
   # - name: sonar-scanner  # Uncomment if needed
   #   ...
   - name: aws
