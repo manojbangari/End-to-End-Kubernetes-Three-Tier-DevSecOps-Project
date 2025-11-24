@@ -118,7 +118,7 @@ pipeline {
         stage('Update Kubernetes Manifest') {
             environment {
                 GIT_REPO_NAME = "End-to-End-Kubernetes-Three-Tier-DevSecOps-Project"
-                GIT_USER_NAME = "Manoj-Bangari"
+                GIT_USER_NAME = "manojbangari"
             }
             steps {
                 container('jnlp') {
