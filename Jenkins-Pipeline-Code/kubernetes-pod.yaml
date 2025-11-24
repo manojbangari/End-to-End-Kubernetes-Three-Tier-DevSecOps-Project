@@ -11,7 +11,6 @@ spec:
       requests:
         memory: "256Mi"
         cpu: "100m"
-  
   - name: docker
     image: docker:dind
     securityContext:
@@ -20,21 +19,10 @@ spec:
       - name: DOCKER_TLS_CERTDIR
         value: ""
     tty: true
-
-  - name: docker-cli # The Client Container
-    # FIX: Upgraded image to ensure API version >= 1.44
-    image: docker:24.0-cli 
-    command: ["cat"]
-    tty: true
-    volumeMounts:
-      - name: docker-sock
-        mountPath: /var/run/docker.sock
-
   - name: trivy
     image: aquasec/trivy:latest
     command: ["sleep", "infinity"]
     tty: true
-  
   - name: sonar-scanner
     image: sonarsource/sonar-scanner-cli:latest
     command: ["sleep", "infinity"]
@@ -46,14 +34,21 @@ spec:
       requests:
         memory: "1.5Gi"
         cpu: "1"
-  
   - name: aws
-    # Note: aws container is used for both aws-cli and git commands.
-    # Ensure git is available in this image (it is in amazon/aws-cli:2)
     image: amazon/aws-cli:2.15.40
-    command: ["cat"]
+    securityContext:
+      privileged: true
+    command:
+      - /bin/sh
+      - -c
+      - |
+        yum install -y docker && \
+        dockerd-entrypoint.sh & \
+        while true; do sleep 30; done
     tty: true
-  
+    volumeMounts:
+      - name: docker-sock
+        mountPath: /var/run/docker.sock
   - name: node
     image: node:20-alpine
     command: ["sleep", "infinity"]
@@ -65,8 +60,6 @@ spec:
       requests:
         memory: "256Mi"
         cpu: "100m"
-        
   volumes:
-    # This volume facilitates communication between the 'docker' daemon and 'docker-cli' client
     - name: docker-sock
       emptyDir: {}
