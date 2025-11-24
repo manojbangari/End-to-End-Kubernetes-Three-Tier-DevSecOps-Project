@@ -32,7 +32,7 @@ spec:
       initialDelaySeconds: 60
       periodSeconds: 30
   - name: docker-cli
-    image: github/docker-cli:master
+    image: testimio/docker-cli:latest
     tty: true
     volumeMounts:
       - name: docker-sock
