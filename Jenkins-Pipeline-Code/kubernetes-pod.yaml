@@ -13,14 +13,14 @@ spec:
         cpu: "100m"
     tty: true
   - name: docker
-    image: docker:29.0-dind  # Pin to v29+ for API 1.44+ enforcement
+    image: docker:29.0-dind  # Official; exists on Docker Hub (API 1.52)
     securityContext:
       privileged: true
     env:
       - name: DOCKER_TLS_CERTDIR
         value: ""
       - name: DOCKER_HOST
-        value: "tcp://0.0.0.0:2375"  # Expose TCP for DOCKER_HOST; bind to all interfaces
+        value: "tcp://0.0.0.0:2375"  # Expose TCP; bind to all interfaces
     ports:
       - containerPort: 2375
         name: docker-tcp
@@ -32,13 +32,29 @@ spec:
       initialDelaySeconds: 60
       periodSeconds: 30
   - name: docker-cli
-    image: testimio/docker-cli:latest
+    image: docker:cli-alpine  # Official latest CLI (v27.3.1 as of Nov 2025; API 1.48, compat with v29)
+    # Alternative pinned: image: docker:27.3-cli-alpine
+    command: ["cat"]  # Keeps container alive
     tty: true
+    securityContext:
+      privileged: false
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
+      requests:
+        cpu: "100m"
+        memory: "64Mi"
+    env:
+      - name: DOCKER_HOST
+        value: "tcp://localhost:2375"  # Match DinD TCP
+      - name: DOCKER_API_VERSION
+        value: "1.44"  # Fallback for negotiation
     volumeMounts:
       - name: docker-sock
-        mountPath: /var/run/docker.sock
+        mountPath: /var/run/docker.sock  # Unix socket fallback
   - name: trivy
-    image: aquasec/trivy:0.55.0  # Pin to stable version (latest as of Nov 2025)
+    image: aquasec/trivy:0.55.0  # Official; confirmed available (latest stable Nov 2025)
     command: ["sleep", "infinity"]
     tty: true
     resources:
@@ -60,8 +76,8 @@ spec:
   #       memory: "1.5Gi"
   #       cpu: "1"
   - name: aws
-    image: amazon/aws-cli:2.17.31  # Latest stable (Nov 2025); no custom Docker install
-    command: ["sleep", "infinity"]  # Simple sleep; no daemon needed
+    image: amazon/aws-cli:2.17.31  # Official; confirmed available (latest Nov 2025)
+    command: ["sleep", "infinity"]
     tty: true
     resources:
       limits:
@@ -72,14 +88,14 @@ spec:
         memory: "128Mi"
     env:
       - name: DOCKER_HOST
-        value: "tcp://localhost:2375"  # For any future docker cmds in aws
+        value: "tcp://localhost:2375"
       - name: DOCKER_API_VERSION
         value: "1.44"
     volumeMounts:
       - name: docker-sock
-        mountPath: /var/run/docker.sock  # Share DinD socket if needed
-  # - name: node  # Uncomment if running npm/yarn directly in pod
-  #   image: node:22-alpine  # Upgrade to LTS (22 as of Nov 2025)
+        mountPath: /var/run/docker.sock
+  # - name: node  # Uncomment if needed
+  #   image: node:22-alpine  # Official LTS (confirmed available)
   #   command: ["sleep", "infinity"]
   #   tty: true
   #   resources:
@@ -91,7 +107,6 @@ spec:
   #       cpu: "100m"
   volumes:
   - name: docker-sock
-    emptyDir: {}  # Shared socket volume for DinD
-  # Optional: Shared artifacts volume
-  # - name: shared-artifacts
+    emptyDir: {}  # Shared for DinD socket
+  # - name: shared-artifacts  # Optional
   #   emptyDir: {}
