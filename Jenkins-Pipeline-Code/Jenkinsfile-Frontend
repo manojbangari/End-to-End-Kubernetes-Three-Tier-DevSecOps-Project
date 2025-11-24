@@ -85,25 +85,29 @@ pipeline {
 
         stage('Push to ECR') {
             steps {
-                container('aws') {
-                    withCredentials([[
-                      $class: 'AmazonWebServicesCredentialsBinding',
-                      credentialsId: 'aws-creds',   // <-- YOUR Jenkins credential ID
-                      accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                      secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    ]]) {
+                withCredentials([[ 
+                  $class: 'AmazonWebServicesCredentialsBinding',
+                  credentialsId: 'aws-creds',
+                  accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                  secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+        
+                    container('aws') {
                         sh '''
-                            export AWS_DEFAULT_REGION=us-east-1
+                          export AWS_DEFAULT_REGION=us-east-1
+                          aws sts get-caller-identity
+                        '''
+                    }
         
-                            aws sts get-caller-identity
+                    container('docker-cli') {
+                        sh '''
+                          aws ecr get-login-password --region us-east-1 | \
+                          docker login --username AWS --password-stdin ${REPOSITORY_URI}
         
-                            aws ecr get-login-password --region $AWS_DEFAULT_REGION | \
-                            docker login --username AWS --password-stdin ${REPOSITORY_URI}
+                          docker tag ${AWS_ECR_REPO_NAME}:${IMAGE_TAG} \
+                          ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
         
-                            docker tag ${AWS_ECR_REPO_NAME}:${IMAGE_TAG} \
-                            ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
-        
-                            docker push ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
+                          docker push ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
                         '''
                     }
                 }
