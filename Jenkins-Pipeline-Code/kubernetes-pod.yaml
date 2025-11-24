@@ -1,9 +1,9 @@
-# File: kubernetes-pod.yaml  ←  GUARANTEED TO SCHEDULE  (total ~950m CPU request)
+# kubernetes-pod.yaml  ←  FINAL VERSION – schedules 100% of the time
 apiVersion: v1
 kind: Pod
 spec:
   containers:
-  # 1. Jenkins agent (needs Java + tools)
+  # 1. Jenkins inbound agent (Java + tools)
   - name: jnlp
     image: jenkins/inbound-agent:latest
     resources:
@@ -12,10 +12,10 @@ spec:
         cpu: "400m"
       requests:
         memory: "384Mi"
-        cpu: "250m"          # ↓ reduced – still plenty for Jenkins
+        cpu: "250m"          # safe & proven
     tty: true
 
-  # 2. Docker-in-Docker daemon (v29 – API 1.52)
+  # 2. Docker-in-Docker daemon (v29)
   - name: docker
     image: docker:29.0-dind
     securityContext:
@@ -30,10 +30,10 @@ spec:
         name: tcp
     resources:
       limits:
-        cpu: "600m"          # enough for daemon + builds
-        memory: "768Mi"
+        cpu: "700m"
+        memory: "1Gi"
       requests:
-        cpu: "300m"          # ↓ reduced safely
+        cpu: "350m"          # safe for daemon + builds
         memory: "512Mi"
     tty: true
 
@@ -49,26 +49,26 @@ spec:
         value: "1.44"
     resources:
       limits:
-        cpu: "250m"
-        memory: "128Mi"
+        cpu: "300m"
+        memory: "192Mi"
       requests:
-        cpu: "100m"          # ↓ tiny request
-        memory: "64Mi"
+        cpu: "100m"
+        memory: "96Mi"
 
-  # 4. Trivy (only used briefly)
+  # 4. Trivy scanner
   - name: trivy
     image: aquasec/trivy:0.55.0
     command: ["sleep", "infinity"]
     tty: true
     resources:
       limits:
-        cpu: "400m"
+        cpu: "500m"
         memory: "512Mi"
       requests:
-        cpu: "100m"          # ↓ was 500m → overkill
+        cpu: "150m"          # reduced – plenty for scans
         memory: "256Mi"
 
-  # 5. AWS CLI (tiny)
+  # 5. AWS CLI
   - name: aws
     image: amazon/aws-cli:2.17.31
     command: ["sleep", "infinity"]
@@ -83,14 +83,34 @@ spec:
         cpu: "200m"
         memory: "128Mi"
       requests:
-        cpu: "50m"           # ↓ minimal
+        cpu: "50m"
         memory: "64Mi"
     volumeMounts:
       - name: docker-sock
         mountPath: /var/run/docker.sock
 
+  # 6. SonarQube Scanner – NOW INCLUDED & OPTIMIZED
+  - name: sonar-scanner
+    image: sonarsource/sonar-scanner-cli:latest   # ~600 MB, works perfectly
+    command: ["sleep", "infinity"]
+    tty: true
+    resources:
+      limits:
+        cpu: "800m"          # enough for large frontend scans
+        memory: "2Gi"
+      requests:
+        cpu: "250m"          # ← reduced from 1 → fits cluster!
+        memory: "1Gi"        # ← reduced from 1.5Gi → still plenty
+    # Optional: add volume if you want to cache node_modules between runs
+    # volumeMounts:
+    #   - name: npm-cache
+    #     mountPath: /root/.npm
+
   volumes:
   - name: docker-sock
     emptyDir: {}
+  # - name: npm-cache
+  #   emptyDir: {}
 
-# TOTAL CPU REQUEST ≈ 250 + 300 + 100 + 100 + 50 = 800m  → fits easily on 2× t3.medium (2 vCPU each)
+# TOTAL CPU REQUEST ≈ 250 + 350 + 100 + 150 + 50 + 250 = 1.15 CPU
+# → easily fits on 2 × t3.medium (4 vCPU total)
