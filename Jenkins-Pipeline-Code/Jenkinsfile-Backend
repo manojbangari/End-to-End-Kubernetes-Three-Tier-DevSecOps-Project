@@ -87,10 +87,20 @@ pipeline {
         }
         stage('Trivy Image Scan') {
             steps {
+                // First pull the image using the container that HAS Docker + ECR login
+                container('docker-cli') {
+                    sh '''
+                        echo "Pulling image into local Docker daemon..."
+                        docker pull ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG}
+                        echo "Image pulled successfully"
+                    '''
+                }
+
+                // Now run Trivy in its own container — image is already local, so Trivy finds it instantly
                 container('trivy') {
                     catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         sh '''
-                            echo "Scanning backend image..."
+                            echo "Scanning image locally (no AWS auth needed)..."
                             trivy image \
                                 --timeout 20m \
                                 --ignore-unfixed \
@@ -99,6 +109,8 @@ pipeline {
                                 --exit-code 0 \
                                 ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${IMAGE_TAG} \
                                 | tee trivyimage.txt
+
+                            echo "Trivy scan completed!"
                             cat trivyimage.txt
                         '''
                     }
